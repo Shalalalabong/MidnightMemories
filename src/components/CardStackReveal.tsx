@@ -498,6 +498,7 @@ export const CardStackReveal: React.FC<CardStackRevealProps> = ({
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
           onPointerCancel={handlePointerUp}
+          onDragStart={(e) => e.preventDefault()}
           className="absolute top-0 left-0 z-10 touch-none select-none cursor-pointer"
           style={{
             ...getActiveCardTransform(),
