@@ -244,7 +244,8 @@ export const CardItem: React.FC<CardItemProps> = ({
         onClick={handleClick}
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
-        className={`relative ${sizeClasses} cursor-pointer transition-transform duration-200 ease-out`}
+        onDragStart={(e) => e.preventDefault()}
+        className={`relative ${sizeClasses} cursor-pointer transition-transform duration-200 ease-out select-none`}
         style={{
           perspective: '1000px',
           zIndex: 2,
@@ -309,7 +310,9 @@ export const CardItem: React.FC<CardItemProps> = ({
                 <img
                   src={photoUrl}
                   alt={displayTitle}
-                  className="w-full h-full object-cover"
+                  draggable={false}
+                  onDragStart={(e) => e.preventDefault()}
+                  className="w-full h-full object-cover pointer-events-none select-none"
                   onError={() => setImageError(true)}
                 />
               ) : (
