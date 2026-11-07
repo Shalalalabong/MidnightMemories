@@ -268,6 +268,11 @@ export const CardItem: React.FC<CardItemProps> = ({
             style={{
               backfaceVisibility: 'hidden',
               WebkitBackfaceVisibility: 'hidden',
+              transform: 'rotateY(0deg) translateZ(1px)',
+              zIndex: isFlipped ? 0 : 2,
+              opacity: isFlipped ? 0 : 1,
+              pointerEvents: isFlipped ? 'none' : 'auto',
+              transition: 'opacity 0.25s ease-in-out',
             }}
           >
             {/* Holographic foil overlay layer */}
@@ -362,7 +367,11 @@ export const CardItem: React.FC<CardItemProps> = ({
             style={{
               backfaceVisibility: 'hidden',
               WebkitBackfaceVisibility: 'hidden',
-              transform: 'rotateY(180deg)',
+              transform: 'rotateY(180deg) translateZ(1px)',
+              zIndex: isFlipped ? 2 : 0,
+              opacity: isFlipped ? 1 : 0,
+              pointerEvents: isFlipped ? 'auto' : 'none',
+              transition: 'opacity 0.25s ease-in-out',
             }}
           >
             <div className="absolute inset-[3px] border border-white/30 rounded-[12px] pointer-events-none" />
