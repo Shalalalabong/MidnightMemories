@@ -205,14 +205,7 @@ export default function App() {
       </nav>
 
       {/* Quiet Footer */}
-      <footer className="relative z-10 border-t border-white/10 py-5 text-center text-xs text-pink-200/50">
-        <div className="max-w-4xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
-          <span>Midnight Memories · Interactive Card Booster &amp; Binder</span>
-          <span className="text-[10px] text-pink-300/40">
-            Publishing ready · Drop photos into <code className="text-pink-300/70">public/photos/</code> and Kuromi decor into <code className="text-pink-300/70">public/decorations/kuromi/</code>
-          </span>
-        </div>
-      </footer>
+      <footer className="relative z-10 border-t border-white/5 py-4" />
     </div>
   );
 }
