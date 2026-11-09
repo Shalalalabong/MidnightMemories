@@ -18,15 +18,15 @@ export default function App() {
   const [isMuted, setIsMuted] = useState(false);
   const [kuromiDecorEnabled, setKuromiDecorEnabled] = useState(true);
 
-  // Splash screen state to ensure immediate 100% reliable music start
-  const [hasEntered, setHasEntered] = useState(false);
+  // Dissipation state for the Title Splash Screen
+  const [isDissipating, setIsDissipating] = useState(false);
+  const [overlayRemoved, setOverlayRemoved] = useState(false);
 
   // Background music audio reference
   const bgmRef = useRef<HTMLAudioElement | null>(null);
-
   const bgmUrl = `${import.meta.env.BASE_URL || './'}bgm.mp3`.replace('//', '/');
 
-  // Attempt instant autoplay on mount (works if browser allows, otherwise waits for enter click)
+  // Attempt instant autoplay on mount
   useEffect(() => {
     const audio = new Audio(bgmUrl);
     audio.loop = true;
@@ -34,16 +34,16 @@ export default function App() {
     audio.preload = 'auto';
     bgmRef.current = audio;
 
-    // Try starting right away
+    // Check if the browser allows immediate autoplay
     audio
       .play()
       .then(() => {
-        // If the browser allowed instant autoplay, skip the enter screen!
-        setHasEntered(true);
+        // Direct autoplay allowed by user agent: remove overlay instantly
+        setOverlayRemoved(true);
       })
       .catch(() => {
-        // Browser blocked autoplay without interaction -> show Enter screen
-        setHasEntered(false);
+        // Autoplay policy prevented playback: wait for user tap
+        setOverlayRemoved(false);
       });
 
     return () => {
@@ -51,12 +51,22 @@ export default function App() {
     };
   }, [bgmUrl]);
 
-  // Handler when user taps Enter
+  // Trigger cosmic dissipation animation when tapped
   const handleEnterSite = () => {
-    setHasEntered(true);
+    if (isDissipating) return;
+
+    // 1. Start audio immediately upon interaction
     if (bgmRef.current && bgmRef.current.paused) {
       bgmRef.current.play().catch(() => {});
     }
+
+    // 2. Trigger dissipation animation
+    setIsDissipating(true);
+
+    // 3. Remove overlay from DOM once animation finishes
+    setTimeout(() => {
+      setOverlayRemoved(true);
+    }, 750);
   };
 
   // Load saved collection and statistics from localStorage
@@ -257,14 +267,31 @@ export default function App() {
         </button>
       </nav>
 
-      {/* IMMERSIVE "TAP TO ENTER" OVERLAY */}
-      {/* Satisfies the browser's audio security policy while looking like a stylish game title screen */}
-      {!hasEntered && (
+      {/* DISSIPATING "TAP TO ENTER" TITLE OVERLAY */}
+      {!overlayRemoved && (
         <div 
           onClick={handleEnterSite}
-          className="fixed inset-0 z-50 bg-[#12081d]/95 backdrop-blur-xl flex flex-col items-center justify-center p-4 cursor-pointer select-none transition-opacity duration-500 animate-fadeIn"
+          className={`fixed inset-0 z-50 flex flex-col items-center justify-center p-4 cursor-pointer select-none transition-all duration-700 ${
+            isDissipating 
+              ? 'opacity-0 scale-125 blur-xl pointer-events-none' 
+              : 'opacity-100 scale-100 blur-0 bg-[#12081d]/95 backdrop-blur-xl'
+          }`}
+          style={{
+            transitionTimingFunction: 'cubic-bezier(0.16, 1, 0.3, 1)',
+          }}
         >
-          <div className="relative text-center flex flex-col items-center max-w-sm">
+          {/* Ambient luminous glow expanding behind the symbol on tap */}
+          <div 
+            className={`absolute w-72 h-72 rounded-full bg-gradient-to-tr from-pink-500/20 via-purple-600/30 to-transparent blur-3xl pointer-events-none transition-transform duration-700 ${
+              isDissipating ? 'scale-150 opacity-0' : 'scale-100 opacity-100'
+            }`} 
+          />
+
+          <div 
+            className={`relative text-center flex flex-col items-center max-w-sm transition-transform duration-700 ${
+              isDissipating ? 'scale-110 -translate-y-4' : 'scale-100 translate-y-0'
+            }`}
+          >
             <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-pink-300 to-purple-600 flex items-center justify-center text-purple-950 font-black text-2xl shadow-[0_0_35px_rgba(255,140,210,0.6)] mb-4 animate-pulse">
               ✦
             </div>
