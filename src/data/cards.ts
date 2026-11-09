@@ -4,7 +4,7 @@ export const RARITY_CONFIG: Record<CardRarityKey, CardRarity> = {
   common: {
     key: 'common',
     name: 'COMMON',
-    weight: 45,
+    weight: 25,
     color: '#d4b3df',
     badgeBg: 'rgba(212, 179, 223, 0.18)',
     foilType: 'none',
@@ -20,7 +20,7 @@ export const RARITY_CONFIG: Record<CardRarityKey, CardRarity> = {
   rare: {
     key: 'rare',
     name: 'RARE',
-    weight: 16,
+    weight: 20,
     color: '#8cb7ff',
     badgeBg: 'rgba(140, 183, 255, 0.22)',
     foilType: 'starlight',
@@ -28,7 +28,7 @@ export const RARITY_CONFIG: Record<CardRarityKey, CardRarity> = {
   epic: {
     key: 'epic',
     name: 'EPIC',
-    weight: 8,
+    weight: 18,
     color: '#db82ff',
     badgeBg: 'rgba(219, 130, 255, 0.25)',
     foilType: 'amethyst',
@@ -36,7 +36,7 @@ export const RARITY_CONFIG: Record<CardRarityKey, CardRarity> = {
   legendary: {
     key: 'legendary',
     name: 'LEGENDARY',
-    weight: 3,
+    weight: 12,
     color: '#ffd066',
     badgeBg: 'rgba(255, 208, 102, 0.28)',
     foilType: 'gold',
