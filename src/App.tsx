@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { CardDefinition, PulledCard } from './types';
 import { CARD_DATABASE } from './data/cards';
 import { Navbar } from './components/Navbar';
@@ -18,6 +18,35 @@ export default function App() {
   const [isMuted, setIsMuted] = useState(false);
   const [kuromiDecorEnabled, setKuromiDecorEnabled] = useState(true);
 
+  // Background music audio element reference
+  const bgmRef = useRef<HTMLAudioElement | null>(null);
+
+  // Setup background music
+  useEffect(() => {
+    const audio = new Audio('/bgm.mp3');
+    audio.loop = true;
+    audio.volume = 0.35; // Gentle background volume
+    bgmRef.current = audio;
+
+    // Browsers require a user interaction (tap/click/key) before playing audio
+    const startAudio = () => {
+      if (bgmRef.current && !isMuted && bgmRef.current.paused) {
+        bgmRef.current.play().catch(() => {});
+      }
+      window.removeEventListener('pointerdown', startAudio);
+      window.removeEventListener('keydown', startAudio);
+    };
+
+    window.addEventListener('pointerdown', startAudio);
+    window.addEventListener('keydown', startAudio);
+
+    return () => {
+      audio.pause();
+      window.removeEventListener('pointerdown', startAudio);
+      window.removeEventListener('keydown', startAudio);
+    };
+  }, []);
+
   // Load saved collection and statistics from localStorage
   useEffect(() => {
     try {
@@ -33,6 +62,9 @@ export default function App() {
         if (typeof parsed.isMuted === 'boolean') {
           setIsMuted(parsed.isMuted);
           setSoundMuted(parsed.isMuted);
+          if (parsed.isMuted && bgmRef.current) {
+            bgmRef.current.pause();
+          }
         }
         if (typeof parsed.kuromiDecorEnabled === 'boolean') {
           setKuromiDecorEnabled(parsed.kuromiDecorEnabled);
@@ -89,11 +121,20 @@ export default function App() {
     });
   };
 
-  // Toggle audio mute
+  // Toggle audio mute and sync background music
   const handleToggleMute = () => {
     const next = !isMuted;
     setIsMuted(next);
     setSoundMuted(next);
+
+    if (bgmRef.current) {
+      if (next) {
+        bgmRef.current.pause();
+      } else {
+        bgmRef.current.play().catch(() => {});
+      }
+    }
+
     saveState(collection, packsOpened, next, kuromiDecorEnabled);
   };
 
@@ -203,9 +244,6 @@ export default function App() {
           )}
         </button>
       </nav>
-
-      {/* Quiet Footer */}
-      <footer className="relative z-10 border-t border-white/5 py-4" />
     </div>
   );
 }
