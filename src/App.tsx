@@ -18,13 +18,15 @@ export default function App() {
   const [isMuted, setIsMuted] = useState(false);
   const [kuromiDecorEnabled, setKuromiDecorEnabled] = useState(true);
 
+  // Splash screen state to ensure immediate 100% reliable music start
+  const [hasEntered, setHasEntered] = useState(false);
+
   // Background music audio reference
   const bgmRef = useRef<HTMLAudioElement | null>(null);
 
-  // Correct URL resolution that works both locally and on GitHub Pages
   const bgmUrl = `${import.meta.env.BASE_URL || './'}bgm.mp3`.replace('//', '/');
 
-  // Initialize and unlock background music on first tap/click
+  // Attempt instant autoplay on mount (works if browser allows, otherwise waits for enter click)
   useEffect(() => {
     const audio = new Audio(bgmUrl);
     audio.loop = true;
@@ -32,30 +34,30 @@ export default function App() {
     audio.preload = 'auto';
     bgmRef.current = audio;
 
-    const unlockAudio = () => {
-      if (bgmRef.current && bgmRef.current.paused && !isMuted) {
-        bgmRef.current
-          .play()
-          .then(() => {
-            window.removeEventListener('pointerdown', unlockAudio);
-            window.removeEventListener('click', unlockAudio);
-            window.removeEventListener('touchstart', unlockAudio);
-          })
-          .catch(() => {});
-      }
-    };
-
-    window.addEventListener('pointerdown', unlockAudio);
-    window.addEventListener('click', unlockAudio);
-    window.addEventListener('touchstart', unlockAudio);
+    // Try starting right away
+    audio
+      .play()
+      .then(() => {
+        // If the browser allowed instant autoplay, skip the enter screen!
+        setHasEntered(true);
+      })
+      .catch(() => {
+        // Browser blocked autoplay without interaction -> show Enter screen
+        setHasEntered(false);
+      });
 
     return () => {
       audio.pause();
-      window.removeEventListener('pointerdown', unlockAudio);
-      window.removeEventListener('click', unlockAudio);
-      window.removeEventListener('touchstart', unlockAudio);
     };
-  }, [bgmUrl, isMuted]);
+  }, [bgmUrl]);
+
+  // Handler when user taps Enter
+  const handleEnterSite = () => {
+    setHasEntered(true);
+    if (bgmRef.current && bgmRef.current.paused) {
+      bgmRef.current.play().catch(() => {});
+    }
+  };
 
   // Load saved collection and statistics from localStorage
   useEffect(() => {
@@ -172,7 +174,7 @@ export default function App() {
       {/* Background with floating pixelated Kuromi decorations */}
       <PixelKuromiBackground enabled={kuromiDecorEnabled} />
 
-      {/* Top Bar Navigation */}
+      {/* TOP BAR NAVIGATION */}
       <Navbar
         currentTab={currentTab}
         onSelectTab={setCurrentTab}
@@ -183,7 +185,7 @@ export default function App() {
         collectionCount={collection.length}
       />
 
-      {/* Main Content Area */}
+      {/* MAIN CONTENT AREA */}
       <main className="flex-1 relative z-10 pb-24 sm:pb-8">
         {currentTab === 'home' && (
           <HomeView
@@ -210,7 +212,7 @@ export default function App() {
         )}
       </main>
 
-      {/* Bottom Floating Navigation for Mobile screens */}
+      {/* BOTTOM FLOATING NAVIGATION FOR MOBILE */}
       <nav 
         className="sm:hidden fixed left-4 right-4 z-40 bg-[#1e0f30]/92 backdrop-blur-lg border border-pink-300/30 rounded-2xl p-1.5 shadow-[0_8px_30px_rgba(0,0,0,0.85)] flex items-center justify-around"
         style={{ bottom: 'calc(0.75rem + env(safe-area-inset-bottom, 0px))' }}
@@ -254,6 +256,41 @@ export default function App() {
           )}
         </button>
       </nav>
+
+      {/* IMMERSIVE "TAP TO ENTER" OVERLAY */}
+      {/* Satisfies the browser's audio security policy while looking like a stylish game title screen */}
+      {!hasEntered && (
+        <div 
+          onClick={handleEnterSite}
+          className="fixed inset-0 z-50 bg-[#12081d]/95 backdrop-blur-xl flex flex-col items-center justify-center p-4 cursor-pointer select-none transition-opacity duration-500 animate-fadeIn"
+        >
+          <div className="relative text-center flex flex-col items-center max-w-sm">
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-pink-300 to-purple-600 flex items-center justify-center text-purple-950 font-black text-2xl shadow-[0_0_35px_rgba(255,140,210,0.6)] mb-4 animate-pulse">
+              ✦
+            </div>
+
+            <div className="text-[10px] tracking-[0.3em] uppercase text-pink-300 font-semibold mb-1">
+              LIMITED COLLECTOR RELEASE
+            </div>
+
+            <h1
+              className="font-serif text-3xl sm:text-4xl text-white font-extrabold tracking-wide mb-6"
+              style={{ fontFamily: '"Cinzel", Georgia, serif' }}
+            >
+              Midnight Memories
+            </h1>
+
+            <button
+              onClick={handleEnterSite}
+              className="px-8 py-3.5 rounded-full font-bold text-xs tracking-[0.2em] uppercase text-purple-950 bg-gradient-to-r from-pink-200 via-pink-300 to-purple-300 shadow-[0_6px_25px_rgba(240,150,220,0.6)] hover:brightness-110 active:scale-95 transition-all cursor-pointer min-h-[46px] flex items-center gap-2"
+            >
+              <span>TAP TO ENTER</span>
+              <span>✦</span>
+            </button>
+            <p className="text-[10px] text-pink-200/50 mt-3">Tap anywhere to start with sound</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
