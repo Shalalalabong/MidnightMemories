@@ -18,34 +18,44 @@ export default function App() {
   const [isMuted, setIsMuted] = useState(false);
   const [kuromiDecorEnabled, setKuromiDecorEnabled] = useState(true);
 
-  // Background music audio element reference
+  // Background music audio reference
   const bgmRef = useRef<HTMLAudioElement | null>(null);
 
-  // Setup background music
+  // Correct URL resolution that works both locally and on GitHub Pages
+  const bgmUrl = `${import.meta.env.BASE_URL || './'}bgm.mp3`.replace('//', '/');
+
+  // Initialize and unlock background music on first tap/click
   useEffect(() => {
-    const audio = new Audio('/bgm.mp3');
+    const audio = new Audio(bgmUrl);
     audio.loop = true;
-    audio.volume = 0.35; // Gentle background volume
+    audio.volume = 0.4;
+    audio.preload = 'auto';
     bgmRef.current = audio;
 
-    // Browsers require a user interaction (tap/click/key) before playing audio
-    const startAudio = () => {
-      if (bgmRef.current && !isMuted && bgmRef.current.paused) {
-        bgmRef.current.play().catch(() => {});
+    const unlockAudio = () => {
+      if (bgmRef.current && bgmRef.current.paused && !isMuted) {
+        bgmRef.current
+          .play()
+          .then(() => {
+            window.removeEventListener('pointerdown', unlockAudio);
+            window.removeEventListener('click', unlockAudio);
+            window.removeEventListener('touchstart', unlockAudio);
+          })
+          .catch(() => {});
       }
-      window.removeEventListener('pointerdown', startAudio);
-      window.removeEventListener('keydown', startAudio);
     };
 
-    window.addEventListener('pointerdown', startAudio);
-    window.addEventListener('keydown', startAudio);
+    window.addEventListener('pointerdown', unlockAudio);
+    window.addEventListener('click', unlockAudio);
+    window.addEventListener('touchstart', unlockAudio);
 
     return () => {
       audio.pause();
-      window.removeEventListener('pointerdown', startAudio);
-      window.removeEventListener('keydown', startAudio);
+      window.removeEventListener('pointerdown', unlockAudio);
+      window.removeEventListener('click', unlockAudio);
+      window.removeEventListener('touchstart', unlockAudio);
     };
-  }, []);
+  }, [bgmUrl, isMuted]);
 
   // Load saved collection and statistics from localStorage
   useEffect(() => {
