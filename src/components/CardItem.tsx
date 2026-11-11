@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { CardDefinition, CardRarityKey } from '../types';
 import { RARITY_CONFIG } from '../data/cards';
 import { getPhotoForCard } from '../data/photos';
@@ -29,12 +29,14 @@ export const CardItem: React.FC<CardItemProps> = ({
 }) => {
   const [internalFlipped, setInternalFlipped] = useState(false);
   const [imageError, setImageError] = useState(false);
+  const [isInteracting, setIsInteracting] = useState(false);
   const isFlipped = controlledFlipped !== undefined ? controlledFlipped : internalFlipped;
 
   // Ensure card always resets to front-face and image error state on card change
-  React.useEffect(() => {
+  useEffect(() => {
     setInternalFlipped(false);
     setImageError(false);
+    setIsInteracting(false);
   }, [card.id, card.photoPath]);
 
   const cardRef = useRef<HTMLDivElement>(null);
@@ -49,7 +51,30 @@ export const CardItem: React.FC<CardItemProps> = ({
   const photoUrl = getPhotoForCard(card.cardIndex, card.photoPath);
   const displayTitle = card.title;
 
-  // Dynamic 3D tilt and holographic glare tracking
+  // Mobile gyroscope tilt tracking: tilts realistically when holding the phone
+  useEffect(() => {
+    if (!interactiveTilt) return;
+
+    const handleOrientation = (e: DeviceOrientationEvent) => {
+      if (e.gamma === null || e.beta === null) return;
+      // gamma is left-to-right tilt [-90, 90], beta is front-to-back tilt [-180, 180]
+      const rotY = Math.max(-9, Math.min(9, (e.gamma / 25) * 9));
+      const rotX = Math.max(-9, Math.min(9, ((e.beta - 45) / 25) * -9));
+
+      const glareX = Math.max(15, Math.min(85, 50 + (e.gamma / 25) * 35));
+      const glareY = Math.max(15, Math.min(85, 50 + ((e.beta - 45) / 25) * 35));
+
+      setTilt({ x: rotX, y: rotY, glareX, glareY });
+      setIsInteracting(true);
+    };
+
+    window.addEventListener('deviceorientation', handleOrientation);
+    return () => {
+      window.removeEventListener('deviceorientation', handleOrientation);
+    };
+  }, [interactiveTilt]);
+
+  // Dynamic 3D tilt and holographic glare tracking for mouse
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     if (!interactiveTilt || !cardRef.current) return;
     const rect = cardRef.current.getBoundingClientRect();
@@ -60,14 +85,40 @@ export const CardItem: React.FC<CardItemProps> = ({
 
     const rotateX = ((y - centerY) / centerY) * -11;
     const rotateY = ((x - centerX) / centerX) * 11;
-    const glareX = (x / rect.width) * 100;
-    const glareY = (y / rect.height) * 100;
+    const glareX = Math.max(10, Math.min(90, (x / rect.width) * 100));
+    const glareY = Math.max(10, Math.min(90, (y / rect.height) * 100));
 
     setTilt({ x: rotateX, y: rotateY, glareX, glareY });
+    setIsInteracting(true);
   }, [interactiveTilt]);
 
   const handleMouseLeave = useCallback(() => {
     setTilt({ x: 0, y: 0, glareX: 50, glareY: 50 });
+    setIsInteracting(false);
+  }, []);
+
+  // Touch tracking on touchscreen devices
+  const handleTouchMove = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
+    if (!interactiveTilt || !cardRef.current || !e.touches[0]) return;
+    const touch = e.touches[0];
+    const rect = cardRef.current.getBoundingClientRect();
+    const x = touch.clientX - rect.left;
+    const y = touch.clientY - rect.top;
+    const centerX = rect.width / 2;
+    const centerY = rect.height / 2;
+
+    const rotateX = ((y - centerY) / centerY) * -10;
+    const rotateY = ((x - centerX) / centerX) * 10;
+    const glareX = Math.max(15, Math.min(85, (x / rect.width) * 100));
+    const glareY = Math.max(15, Math.min(85, (y / rect.height) * 100));
+
+    setTilt({ x: rotateX, y: rotateY, glareX, glareY });
+    setIsInteracting(true);
+  }, [interactiveTilt]);
+
+  const handleTouchEnd = useCallback(() => {
+    setTilt({ x: 0, y: 0, glareX: 50, glareY: 50 });
+    setIsInteracting(false);
   }, []);
 
   const toggleFlip = (e: React.MouseEvent) => {
@@ -94,7 +145,7 @@ export const CardItem: React.FC<CardItemProps> = ({
     hero: 'w-[min(80vw,265px)] h-[min(120vw,395px)] text-xs',
   }[size];
 
-  // Thematic artwork when no photo has been placed in public/photos/
+  // Thematic artwork when no photo has been placed
   const renderThematicArt = () => {
     switch (card.defaultArtTheme) {
       case 'crown':
@@ -159,33 +210,105 @@ export const CardItem: React.FC<CardItemProps> = ({
   };
 
   // Holographic Foil gradient overlay styles
+  // When idle / touchscreen (not actively tracked), uses an ambient animated sheen
+  // so no harsh static hotspot is centered on the person's face.
   const getFoilStyles = () => {
     switch (rarity.foilType) {
       case 'cosmic-rainbow':
+        if (!isInteracting) {
+          return {
+            background: `linear-gradient(125deg, 
+              rgba(255, 140, 210, 0.16) 0%, 
+              rgba(140, 220, 255, 0.22) 25%, 
+              rgba(255, 255, 255, 0.32) 45%, 
+              rgba(255, 230, 130, 0.22) 65%, 
+              rgba(219, 130, 255, 0.2) 85%, 
+              rgba(255, 140, 210, 0.16) 100%)`,
+            backgroundSize: '250% 250%',
+            animation: 'idleHoloSweep 5.5s ease-in-out infinite alternate',
+            mixBlendMode: 'screen' as const,
+          };
+        }
         return {
-          background: `radial-gradient(circle at ${tilt.glareX}% ${tilt.glareY}%, rgba(255,255,255,0.8) 0%, rgba(255,140,210,0.45) 25%, rgba(140,220,255,0.45) 45%, rgba(255,230,130,0.4) 65%, transparent 85%)`,
+          background: `radial-gradient(circle at ${tilt.glareX}% ${tilt.glareY}%, rgba(255,255,255,0.46) 0%, rgba(255,140,210,0.3) 25%, rgba(140,220,255,0.26) 45%, rgba(255,230,130,0.22) 65%, transparent 80%)`,
           mixBlendMode: 'screen' as const,
         };
+
       case 'gold':
+        if (!isInteracting) {
+          return {
+            background: `linear-gradient(135deg, 
+              rgba(255, 215, 120, 0.12) 0%, 
+              rgba(255, 245, 205, 0.3) 35%, 
+              rgba(255, 195, 75, 0.22) 55%, 
+              rgba(255, 240, 180, 0.28) 75%, 
+              rgba(255, 205, 85, 0.12) 100%)`,
+            backgroundSize: '250% 250%',
+            animation: 'idleHoloSweep 5s ease-in-out infinite alternate',
+            mixBlendMode: 'screen' as const,
+          };
+        }
         return {
-          background: `radial-gradient(circle at ${tilt.glareX}% ${tilt.glareY}%, rgba(255,250,210,0.65) 0%, rgba(255,200,60,0.45) 35%, transparent 75%)`,
-          mixBlendMode: 'color-dodge' as const,
+          background: `radial-gradient(circle at ${tilt.glareX}% ${tilt.glareY}%, rgba(255,250,215,0.42) 0%, rgba(255,205,90,0.26) 35%, transparent 70%)`,
+          mixBlendMode: 'screen' as const,
         };
+
       case 'amethyst':
+        if (!isInteracting) {
+          return {
+            background: `linear-gradient(135deg, 
+              rgba(219, 130, 255, 0.12) 0%, 
+              rgba(255, 220, 255, 0.28) 35%, 
+              rgba(180, 90, 240, 0.2) 55%, 
+              rgba(255, 190, 255, 0.26) 75%, 
+              rgba(190, 100, 245, 0.12) 100%)`,
+            backgroundSize: '250% 250%',
+            animation: 'idleHoloSweep 6s ease-in-out infinite alternate',
+            mixBlendMode: 'screen' as const,
+          };
+        }
         return {
-          background: `radial-gradient(circle at ${tilt.glareX}% ${tilt.glareY}%, rgba(255,220,255,0.6) 0%, rgba(219,130,255,0.4) 40%, transparent 75%)`,
+          background: `radial-gradient(circle at ${tilt.glareX}% ${tilt.glareY}%, rgba(255,230,255,0.36) 0%, rgba(219,130,255,0.22) 40%, transparent 70%)`,
           mixBlendMode: 'screen' as const,
         };
+
       case 'starlight':
+        if (!isInteracting) {
+          return {
+            background: `linear-gradient(135deg, 
+              rgba(140, 183, 255, 0.1) 0%, 
+              rgba(230, 245, 255, 0.26) 35%, 
+              rgba(120, 170, 255, 0.18) 55%, 
+              rgba(215, 235, 255, 0.24) 75%, 
+              rgba(140, 183, 255, 0.1) 100%)`,
+            backgroundSize: '250% 250%',
+            animation: 'idleHoloSweep 6.5s ease-in-out infinite alternate',
+            mixBlendMode: 'screen' as const,
+          };
+        }
         return {
-          background: `radial-gradient(circle at ${tilt.glareX}% ${tilt.glareY}%, rgba(255,255,255,0.55) 0%, rgba(140,183,255,0.3) 40%, transparent 70%)`,
+          background: `radial-gradient(circle at ${tilt.glareX}% ${tilt.glareY}%, rgba(255,255,255,0.34) 0%, rgba(140,183,255,0.18) 40%, transparent 70%)`,
           mixBlendMode: 'screen' as const,
         };
+
       case 'silver':
+        if (!isInteracting) {
+          return {
+            background: `linear-gradient(135deg, 
+              rgba(200, 230, 240, 0.08) 0%, 
+              rgba(255, 255, 255, 0.2) 40%, 
+              rgba(180, 220, 235, 0.14) 60%, 
+              rgba(200, 230, 240, 0.08) 100%)`,
+            backgroundSize: '250% 250%',
+            animation: 'idleHoloSweep 7s ease-in-out infinite alternate',
+            mixBlendMode: 'screen' as const,
+          };
+        }
         return {
-          background: `radial-gradient(circle at ${tilt.glareX}% ${tilt.glareY}%, rgba(255,255,255,0.4) 0%, rgba(200,225,240,0.2) 40%, transparent 65%)`,
+          background: `radial-gradient(circle at ${tilt.glareX}% ${tilt.glareY}%, rgba(255,255,255,0.26) 0%, rgba(180,225,235,0.13) 40%, transparent 65%)`,
           mixBlendMode: 'screen' as const,
         };
+
       default:
         return null;
     }
@@ -244,12 +367,15 @@ export const CardItem: React.FC<CardItemProps> = ({
         onClick={handleClick}
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onTouchCancel={handleTouchEnd}
         onDragStart={(e) => e.preventDefault()}
         className={`relative ${sizeClasses} cursor-pointer transition-transform duration-200 ease-out select-none`}
         style={{
           perspective: '1000px',
           zIndex: 2,
-          transform: interactiveTilt ? `rotateX(${tilt.x}deg) rotateY(${tilt.y}deg)` : undefined,
+          transform: interactiveTilt && isInteracting ? `rotateX(${tilt.x}deg) rotateY(${tilt.y}deg)` : undefined,
           transformStyle: 'preserve-3d',
         }}
       >
@@ -322,12 +448,12 @@ export const CardItem: React.FC<CardItemProps> = ({
               {/* Secret Rare Rainbow Holo Shimmer */}
               {card.rarity === 'secret' && (
                 <div
-                  className="absolute inset-0 pointer-events-none opacity-35 mix-blend-overlay"
+                  className="absolute inset-0 pointer-events-none opacity-20 mix-blend-overlay"
                   style={{
                     background:
-                      'linear-gradient(115deg, transparent 20%, rgba(255,255,255,0.8) 45%, transparent 70%)',
+                      'linear-gradient(115deg, transparent 25%, rgba(255,255,255,0.5) 48%, transparent 70%)',
                     backgroundSize: '200% 200%',
-                    animation: 'shimmerSweep 4s linear infinite',
+                    animation: 'shimmerSweep 4.5s linear infinite',
                   }}
                 />
               )}
@@ -349,7 +475,7 @@ export const CardItem: React.FC<CardItemProps> = ({
                 {card.rarity === 'secret' && <span className="text-pink-300 text-[10px]">★</span>}
               </div>
 
-              {/* CAPTION AREA (Aura removed so HAPPY BIRTHDAY RAYYA is perfectly visible) */}
+              {/* CAPTION AREA */}
               <div className="mt-1 pt-1 border-t border-white/10 text-[8.5px] sm:text-[10px] flex items-center justify-center">
                 {card.rarity === 'secret' || card.customCaption ? (
                   <span className="font-extrabold tracking-wider text-pink-300 uppercase drop-shadow-[0_0_10px_rgba(255,140,210,0.9)] text-center truncate">
@@ -364,7 +490,7 @@ export const CardItem: React.FC<CardItemProps> = ({
             </div>
           </div>
 
-          {/* BACK FACE (Iconic Midnight Medallion Card Back - "The back is perfect") */}
+          {/* BACK FACE (Midnight Medallion Card Back) */}
           <div
             className="absolute inset-0 rounded-2xl p-2.5 flex flex-col items-center justify-center overflow-hidden border-[2px] border-pink-200/50 shadow-2xl bg-gradient-to-br from-[#2a133d] via-[#190a26] to-[#3a144c]"
             style={{
@@ -427,6 +553,20 @@ export const CardItem: React.FC<CardItemProps> = ({
           }
           100% {
             background-position: 200% 200%;
+          }
+        }
+        @keyframes idleHoloSweep {
+          0% {
+            background-position: 0% 15%;
+            opacity: 0.65;
+          }
+          50% {
+            background-position: 100% 85%;
+            opacity: 0.9;
+          }
+          100% {
+            background-position: 0% 15%;
+            opacity: 0.65;
           }
         }
       `}</style>
